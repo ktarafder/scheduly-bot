@@ -1,34 +1,38 @@
+import { SlashCommandBuilder } from 'discord.js';
+
 export default {
-    name: 'schedule view',
-    description: 'View a user\'s schedule',
-    async execute(message, dbclient) {
-      let userId = message.author.id;
-      if (message.mentions.users.size > 0) {
-        userId = message.mentions.users.first().id;
-      }
-  
-      try {
-        const results = await dbclient.execute(
-          `SELECT day, startTime, endTime FROM schedule
-           WHERE userId = ? ORDER BY day`,
-          [userId]
-        );
-  
-        if (!results || results.rows.length === 0) {
-          message.channel.send('No schedule found.');
-          return;
+    data: new SlashCommandBuilder()
+        .setName('schedule-view')
+        .setDescription('View a user\'s schedule')
+        .addUserOption(option =>
+            option.setName('user')
+                .setDescription('User to view schedule for (optional)')),
+
+    async execute(interaction, dbclient) {
+        const targetUser = interaction.options.getUser('user') || interaction.user;
+
+        try {
+            const results = await dbclient.execute(
+                `SELECT day, startTime, endTime FROM schedule
+                 WHERE userId = ? ORDER BY day`,
+                [targetUser.id]
+            );
+
+            if (!results || results.rows.length === 0) {
+                await interaction.reply(`No schedule found for ${targetUser.username}.`);
+                return;
+            }
+
+            let scheduleText = `Schedule for ${targetUser.username}:\n`;
+            results.rows.forEach((row) => {
+                scheduleText += `• ${row.day}: ${row.startTime}-${row.endTime}\n`;
+            });
+
+            await interaction.reply(scheduleText);
+        } catch (err) {
+            console.error('Error retrieving schedule:', err);
+            await interaction.reply({ content: 'Failed to retrieve schedule.', ephemeral: true });
         }
-  
-        let scheduleText = 'Schedule:\n';
-        results.rows.forEach((row) => {
-          scheduleText += `• ${row.day}: ${row.startTime}-${row.endTime}\n`;
-        });
-  
-        message.channel.send(scheduleText);
-      } catch (err) {
-        console.error('Error retrieving schedule:', err);
-        message.channel.send('Failed to retrieve schedule.');
-      }
     },
-  };
+};
   
