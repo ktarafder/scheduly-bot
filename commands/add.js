@@ -2,8 +2,8 @@ import { SlashCommandBuilder } from 'discord.js';
 
 export default {
     data: new SlashCommandBuilder()
-        .setName('schedule-add')
-        .setDescription('Add a day/time range to user schedule')
+        .setName('add')
+        .setDescription('Add a busy time slot to your schedule')
         .addStringOption(option =>
             option.setName('day')
                 .setDescription('Day of the week')
@@ -17,12 +17,17 @@ export default {
                 ))
         .addStringOption(option =>
             option.setName('timerange')
-                .setDescription('Time range (format: 8AM-10AM)')
-                .setRequired(true)),
+                .setDescription('Time range (format: 8am-10am)')
+                .setRequired(true))
+        .addStringOption(option =>
+            option.setName('course')
+                .setDescription('Course name (optional)')
+                .setRequired(false)),
 
     async execute(interaction, dbclient) {
         const day = interaction.options.getString('day');
         const timeRange = interaction.options.getString('timerange');
+        const courseName = interaction.options.getString('course');
         let [startTime, endTime] = timeRange.split('-');
 
         // Normalize time format (convert to uppercase)
@@ -104,15 +109,28 @@ export default {
                 return;
             }
 
-            // If no conflicts, insert the new schedule
+            // Insert schedule data into schedule table
             await dbclient.execute(
-                `INSERT INTO schedule (userId, day, startTime, endTime) VALUES (?, ?, ?, ?)`,
-                [interaction.user.id, day, startTime, endTime]
+                `INSERT INTO schedule (userId, day, startTime, endTime, isFree, courseName) 
+                 VALUES (?, ?, ?, ?, FALSE, ?)`,
+                [interaction.user.id, day, startTime, endTime, courseName]
             );
-            await interaction.reply(`Schedule saved for ${day}, ${startTime}-${endTime}`);
+            
+            // Updated reply to include course name if provided
+            const replyMessage = courseName 
+                ? `Added busy time slot for ${day}, ${startTime}-${endTime} (${courseName})`
+                : `Added busy time slot for ${day}, ${startTime}-${endTime}`;
+            
+            await interaction.reply({
+                content: replyMessage,
+                ephemeral: true
+            });
         } catch (err) {
             console.error('Error handling schedule:', err);
-            await interaction.reply({ content: 'Failed to process schedule.', ephemeral: true });
+            await interaction.reply({ 
+                content: 'Failed to process schedule.', 
+                ephemeral: true 
+            });
         }
     },
 };
