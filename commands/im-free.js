@@ -180,7 +180,7 @@ export default {
                 
                 if (busyTimes) {
                     await interaction.reply({
-                        content: `You can't be free during this time! You have busy events scheduled during: ${busyTimes}`,
+                        content: `You can't be free during this time! You have busy events scheduled`,
                         ephemeral: true
                     });
                     return;
