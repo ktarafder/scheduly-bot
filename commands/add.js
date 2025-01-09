@@ -1,9 +1,9 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, MessageFlags } from 'discord.js';
 
 export default {
     data: new SlashCommandBuilder()
         .setName('add')
-        .setDescription('Add a busy time slot to your schedule')
+        .setDescription('Add an event or course to your schedule')
         .addStringOption(option =>
             option.setName('day')
                 .setDescription('Day of the week')
@@ -17,186 +17,133 @@ export default {
                 ))
         .addStringOption(option =>
             option.setName('timerange')
-                .setDescription('Time range (format: 8am-10am)')
+                .setDescription('Time range (format: 8am-10am, 9:30am-10:30am)')
                 .setRequired(true))
         .addStringOption(option =>
             option.setName('course')
-                .setDescription('Course name (optional)')
-                .setRequired(false)),
+                .setDescription('Course or event name')
+                .setRequired(true)),
 
-            async execute(interaction, dbclient) {
-                const day = interaction.options.getString('day');
-                const timeRange = interaction.options.getString('timerange');
-                const courseName = interaction.options.getString('course');
-                let [startTime, endTime] = timeRange.split('-');
-        
-                // Normalize time format (convert to uppercase)
-                startTime = startTime.toUpperCase();
-                endTime = endTime.toUpperCase();
-        
-                // Updated regex for time format validation
-                const timeFormatRegex = /^(1[0-2]|0?[1-9])(?::([0-5][0-9]))?\s*(AM|PM)$/i;
-        
-                if (!timeFormatRegex.test(startTime) || !timeFormatRegex.test(endTime)) {
-                    await interaction.reply({
-                        content: 'Invalid time format. Please use format like "8AM-10AM" or "8:30AM-10:45AM"',
-                        ephemeral: true
-                    });
-                    return;
-                }
-        
-    
-            // Parse times to standardized format
-            const parseTime = (time) => {
-                const match = time.match(timeFormatRegex);
-                const hours = match[1];
-                const minutes = match[2] || '00';
-                const period = match[3];
-                return `${hours}:${minutes}${period}`;
-            };
-    
-            startTime = parseTime(startTime);
-            endTime = parseTime(endTime);
-
-        // Updated convertTo24Hour function with better error handling
-        function convertTo24Hour(time) {
-            const match = time.match(timeFormatRegex);
-            if (!match) {
-                throw new Error(`Invalid time format: ${time}`);
-            }
-
-            let [_, hours, minutes, period] = match;
-            let hour = parseInt(hours);
-            
-            if (!period) {
-                throw new Error(`Missing AM/PM indicator: ${time}`);
-            }
-
-            period = period.toUpperCase();
-            if (period === 'PM' && hour !== 12) {
-                hour += 12;
-            } else if (period === 'AM' && hour === 12) {
-                hour = 0;
-            }
-            
-            const mins = minutes ? parseInt(minutes) : 0;
-            return hour + (mins / 60);
-        }
-
+    async execute(interaction, dbclient) {
         try {
-            const start24 = convertTo24Hour(startTime);
-            const end24 = convertTo24Hour(endTime);
+            const userId = interaction.user.id;
+            const day = interaction.options.getString('day');
+            const timeRange = interaction.options.getString('timerange');
+            const courseName = interaction.options.getString('course');
 
-            // ...existing database query code...
-        } catch (error) {
-            await interaction.reply({
-                content: `Error processing time: ${error.message}`,
-                ephemeral: true
-            });
-            return;
-        }
-        const start24 = convertTo24Hour(startTime);
-        const end24 = convertTo24Hour(endTime);
-
-        try {
-            const conflicts = await dbclient.execute(
-                `WITH time_conversion AS (
-                    SELECT 
-                        id,
-                        CASE 
-                            WHEN UPPER(startTime) LIKE '%PM' AND CAST(
-                                CASE 
-                                    WHEN INSTR(startTime, ':') > 0 
-                                    THEN SUBSTR(startTime, 1, INSTR(startTime, ':') - 1)
-                                    ELSE SUBSTR(startTime, 1, LENGTH(startTime) - 2)
-                                END AS INTEGER) != 12 
-                            THEN CAST(
-                                CASE 
-                                    WHEN INSTR(startTime, ':') > 0 
-                                    THEN SUBSTR(startTime, 1, INSTR(startTime, ':') - 1)
-                                    ELSE SUBSTR(startTime, 1, LENGTH(startTime) - 2)
-                                END AS INTEGER) + 12
-                            WHEN UPPER(startTime) LIKE '%AM' AND CAST(
-                                CASE 
-                                    WHEN INSTR(startTime, ':') > 0 
-                                    THEN SUBSTR(startTime, 1, INSTR(startTime, ':') - 1)
-                                    ELSE SUBSTR(startTime, 1, LENGTH(startTime) - 2)
-                                END AS INTEGER) = 12 
-                            THEN 0
-                            ELSE CAST(
-                                CASE 
-                                    WHEN INSTR(startTime, ':') > 0 
-                                    THEN SUBSTR(startTime, 1, INSTR(startTime, ':') - 1)
-                                    ELSE SUBSTR(startTime, 1, LENGTH(startTime) - 2)
-                                END AS INTEGER)
-                        END + 
-                        CASE 
-                            WHEN INSTR(startTime, ':') > 0 
-                            THEN CAST(SUBSTR(startTime, INSTR(startTime, ':') + 1, 2) AS FLOAT) / 60
-                            ELSE 0
-                        END as start_hour,
-                        CASE 
-                            WHEN UPPER(endTime) LIKE '%PM' AND CAST(
-                                CASE 
-                                    WHEN INSTR(endTime, ':') > 0 
-                                    THEN SUBSTR(endTime, 1, INSTR(endTime, ':') - 1)
-                                    ELSE SUBSTR(endTime, 1, LENGTH(endTime) - 2)
-                                END AS INTEGER) != 12 
-                            THEN CAST(
-                                CASE 
-                                    WHEN INSTR(endTime, ':') > 0 
-                                    THEN SUBSTR(endTime, 1, INSTR(endTime, ':') - 1)
-                                    ELSE SUBSTR(endTime, 1, LENGTH(endTime) - 2)
-                                END AS INTEGER) + 12
-                            WHEN UPPER(endTime) LIKE '%AM' AND CAST(
-                                CASE 
-                                    WHEN INSTR(endTime, ':') > 0 
-                                    THEN SUBSTR(endTime, 1, INSTR(endTime, ':') - 1)
-                                    ELSE SUBSTR(endTime, 1, LENGTH(endTime) - 2)
-                                END AS INTEGER) = 12 
-                            THEN 0
-                            ELSE CAST(
-                                CASE 
-                                    WHEN INSTR(endTime, ':') > 0 
-                                    THEN SUBSTR(endTime, 1, INSTR(endTime, ':') - 1)
-                                    ELSE SUBSTR(endTime, 1, LENGTH(endTime) - 2)
-                                END AS INTEGER)
-                        END + 
-                        CASE 
-                            WHEN INSTR(endTime, ':') > 0 
-                            THEN CAST(SUBSTR(endTime, INSTR(endTime, ':') + 1, 2) AS FLOAT) / 60
-                            ELSE 0
-                        END as end_hour
-                    FROM schedule
-                    WHERE userId = ? AND day = ?
-                )
-                SELECT * FROM time_conversion 
-                WHERE (? BETWEEN start_hour AND end_hour) 
-                OR (? BETWEEN start_hour AND end_hour)
-                OR (start_hour BETWEEN ? AND ?)`,
-                [interaction.user.id, day, start24, end24, start24, end24]
-            );
-
-            if (conflicts.rows.length > 0) {
-                const conflictTimes = conflicts.rows
-                    .map(row => `${row.startTime}-${row.endTime}`)
-                    .join(', ');
-                await interaction.reply({
-                    content: `Conflicting events found! You already have events scheduled during: ${conflictTimes}`,
+            // Validate and split timerange
+            if (!timeRange || !timeRange.includes('-')) {
+                return await interaction.reply({
+                    content: 'Please provide a valid time range (e.g., 9am-10am, 9am-10:30am)',
                     ephemeral: true
                 });
-                return;
             }
 
-            // Insert schedule data into schedule table
-            await dbclient.execute(
-                `INSERT INTO schedule (userId, day, startTime, endTime, isFree, courseName) 
-                 VALUES (?, ?, ?, ?, FALSE, ?)`,
-                [interaction.user.id, day, startTime, endTime, courseName]
-            );
+            const [startTime, endTime] = timeRange.split('-');
+
+            // More flexible time format regex
+            const timeFormatRegex = /^(1[0-2]|0?[1-9])(?::([0-5][0-9]))?\s*(am|pm)$/i;
             
-            // Updated reply to include course name if provided
-            const replyMessage = courseName 
+            // Clean up time strings (remove spaces, standardize AM/PM)
+            const cleanTimeStr = (str) => {
+                if (typeof str !== 'string') return '';
+                return str.replace(/\s+/g, '').toLowerCase();
+            };
+
+            const cleanStartTime = cleanTimeStr(startTime);
+            const cleanEndTime = cleanTimeStr(endTime);
+
+            if (!timeFormatRegex.test(cleanStartTime) || !timeFormatRegex.test(cleanEndTime)) {
+                return await interaction.reply({
+                    content: 'Invalid time format. Please use format like "9am-10am" or "9am-10:30am"',
+                    ephemeral: true
+                });
+            }
+
+            // Convert times to minutes since midnight
+            const convertTimeToMinutes = (timeStr) => {
+                const match = cleanTimeStr(timeStr).match(timeFormatRegex);
+                if (!match) return null;
+                
+                let hours = parseInt(match[1]);
+                const minutes = match[2] ? parseInt(match[2]) : 0;
+                const period = match[3].toLowerCase();
+                
+                if (period === 'pm' && hours !== 12) hours += 12;
+                if (period === 'am' && hours === 12) hours = 0;
+                
+                return hours * 60 + minutes;
+            };
+
+            const startMinutes = convertTimeToMinutes(startTime);
+            const endMinutes = convertTimeToMinutes(endTime);
+
+            if (startMinutes === null || endMinutes === null) {
+                return await interaction.reply({
+                    content: 'Failed to parse time format. Please use format like "9am-10am" or "9am-10:30am"',
+                    ephemeral: true
+                });
+            }
+
+            // Validate time range
+            if (startMinutes >= endMinutes) {
+                return await interaction.reply({
+                    content: 'End time must be after start time',
+                    ephemeral: true
+                });
+            }
+
+            // Check for conflicts
+            const conflicts = await dbclient.execute(`
+                SELECT start_time, end_time, course_name
+                FROM schedules
+                WHERE userId = ?
+                AND day = ?
+                AND (
+                    (? BETWEEN start_time AND end_time) OR  -- New start time falls within existing event
+                    (? BETWEEN start_time AND end_time) OR  -- New end time falls within existing event
+                    (? <= start_time AND ? >= end_time)     -- New event completely encompasses existing event
+                )
+            `, [userId, day, startMinutes, endMinutes, startMinutes, endMinutes]);
+
+            if (conflicts.rows.length > 0) {
+                const conflictingEvents = conflicts.rows.map(event => {
+                    const startHour = Math.floor(event.start_time / 60);
+                    const startMin = event.start_time % 60;
+                    const endHour = Math.floor(event.end_time / 60);
+                    const endMin = event.end_time % 60;
+                    
+                    const formatTime = (hour, min) => {
+                        const period = hour >= 12 ? 'PM' : 'AM';
+                        const hour12 = hour % 12 || 12;
+                        return `${hour12}:${min.toString().padStart(2, '0')}${period}`;
+                    };
+
+                    const timeStr = `${formatTime(startHour, startMin)}-${formatTime(endHour, endMin)}`;
+                    return event.course_name 
+                        ? `${timeStr} (${event.course_name})`
+                        : timeStr;
+                }).join(', ');
+
+                return await interaction.reply({
+                    content: `Cannot add this time slot. Conflicts with existing event(s): ${conflictingEvents}`,
+                    flags: MessageFlags.Ephemeral
+                });
+            }
+
+            // First, ensure user exists in users table
+            await dbclient.execute(`
+                INSERT OR IGNORE INTO users (user_id, name)
+                VALUES (?, ?)
+            `, [userId, interaction.user.displayName]);
+
+            // Then add the schedule
+            await dbclient.execute(`
+                INSERT INTO schedules (userId, day, start_time, end_time, is_free, course_name)
+                VALUES (?, ?, ?, ?, FALSE, ?)
+            `, [userId, day, startMinutes, endMinutes, courseName]);
+
+            const replyMessage = courseName
                 ? `Added busy time slot for ${day}, ${startTime}-${endTime} (${courseName})`
                 : `Added busy time slot for ${day}, ${startTime}-${endTime}`;
             
@@ -204,6 +151,7 @@ export default {
                 content: replyMessage,
                 ephemeral: true
             });
+
         } catch (err) {
             console.error('Error handling schedule:', err);
             await interaction.reply({ 
