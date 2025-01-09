@@ -2,7 +2,7 @@ import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { Client, GatewayIntentBits, REST, Routes } from 'discord.js';
+import { Client, GatewayIntentBits, REST, Routes, MessageFlags } from 'discord.js';
 import { createClient } from "@libsql/client";
 
 // Resolve the directory of the current module in ESM
@@ -24,23 +24,42 @@ const discord_client = new Client({
     intents: [GatewayIntentBits.Guilds]  // Only need Guilds for slash commands
 });
 
-// Create schedule table if it doesn't exist
+// Create tables if they don't exist
 (async () => {
     try {
+        // Create users table first
         await dbclient.execute(`
-            CREATE TABLE IF NOT EXISTS schedule (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                userId TEXT NOT NULL,
-                day TEXT NOT NULL,
-                startTime TEXT NOT NULL,
-                endTime TEXT NOT NULL,
-                isFree BOOLEAN DEFAULT FALSE,
-                courseName TEXT
+            CREATE TABLE IF NOT EXISTS users (
+                app_id INTEGER PRIMARY KEY, -- will auto increment since it's int primary key
+                user_id TEXT UNIQUE, -- unique constraint so we can use this as a foreign key
+                name TEXT NOT NULL,
+                timezone TEXT DEFAULT 'UTC',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
-        console.log("Table 'schedule' created/exists.");
+        console.log("Table 'users' created/exists.");
+
+        // Then create schedules table with foreign key
+        await dbclient.execute(`
+            CREATE TABLE IF NOT EXISTS schedules (
+                id INTEGER PRIMARY KEY,
+                userId TEXT NOT NULL,
+                day TEXT NOT NULL,
+                start_time INTEGER NOT NULL,
+                end_time INTEGER NOT NULL,
+                is_free BOOLEAN DEFAULT FALSE,
+                course_name TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (userId) REFERENCES users(user_id) ON DELETE CASCADE,
+                CHECK (start_time >= 0 AND start_time < 1440),
+                CHECK (end_time > 0 AND end_time <= 1440),
+                CHECK (start_time < end_time)
+            );
+        `);
+        console.log("Table 'schedules' created/exists.");
     } catch (err) {
-        console.error("Error creating table:", err);
+        console.error("Error creating tables:", err);
     }
 })();
 
@@ -72,7 +91,7 @@ try {
 
     // dev instant
     await rest.put(
-        Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
+        Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.SERVER_A),
         { body: commands },
     );
 
@@ -105,12 +124,12 @@ discord_client.on('interactionCreate', async interaction => {
         if (interaction.replied || interaction.deferred) {
             await interaction.followUp({ 
                 content: 'There was an error executing this command!', 
-                ephemeral: true 
+                flags: MessageFlags.Ephemeral
             });
         } else {
             await interaction.reply({ 
                 content: 'There was an error executing this command!', 
-                ephemeral: true 
+                flags: MessageFlags.Ephemeral
             });
         }
     }
