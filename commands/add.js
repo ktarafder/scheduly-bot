@@ -35,7 +35,7 @@ export default {
             if (!timeRange || !timeRange.includes('-')) {
                 return await interaction.reply({
                     content: 'Please provide a valid time range (e.g., 9am-10am, 9am-10:30am)',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -56,7 +56,7 @@ export default {
             if (!timeFormatRegex.test(cleanStartTime) || !timeFormatRegex.test(cleanEndTime)) {
                 return await interaction.reply({
                     content: 'Invalid time format. Please use format like "9am-10am" or "9am-10:30am"',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -81,7 +81,7 @@ export default {
             if (startMinutes === null || endMinutes === null) {
                 return await interaction.reply({
                     content: 'Failed to parse time format. Please use format like "9am-10am" or "9am-10:30am"',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -89,7 +89,7 @@ export default {
             if (startMinutes >= endMinutes) {
                 return await interaction.reply({
                     content: 'End time must be after start time',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -149,14 +149,14 @@ export default {
             
             await interaction.reply({
                 content: replyMessage,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
 
         } catch (err) {
             console.error('Error handling schedule:', err);
             await interaction.reply({ 
                 content: 'Failed to process schedule.', 
-                ephemeral: true 
+                flags: MessageFlags.Ephemeral
             });
         }
     },
