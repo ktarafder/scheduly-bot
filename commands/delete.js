@@ -113,7 +113,16 @@ export default {
                             flags: MessageFlags.Ephemeral
                         });
                     } 
-                    else if (i.customId === 'confirm_delete' && selectedEvents.length > 0) {
+                    else if (i.customId === 'confirm_delete') {
+                        if (selectedEvents.length === 0) {
+                            await i.update({
+                                content: 'No event selected for deletion. Please select an event first.',
+                                components: [selectRow, buttonRow],
+                                flags: MessageFlags.Ephemeral
+                            });
+                            return;
+                        }
+
                         // Delete the selected events
                         const placeholders = selectedEvents.map(() => '?').join(',');
                         await dbclient.execute(`
