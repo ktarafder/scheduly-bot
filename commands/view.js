@@ -4,7 +4,7 @@ import { createCanvas } from 'canvas';
 export default {
   data: new SlashCommandBuilder()
     .setName('view')
-    .setDescription('View a user\'s schedule (fancy blocks)')
+    .setDescription('View your schedule or another user\'s schedule')
     .addUserOption(option =>
       option.setName('user')
         .setDescription('User to view schedule for (optional)')
@@ -39,6 +39,15 @@ export default {
         return;
       }
 
+      const userResult = await dbclient.execute(
+        'SELECT name FROM users WHERE user_id = ?',
+        [targetUser.id]
+     );
+
+     const userName = userResult.rows.length > 0 
+        ? userResult.rows[0].name 
+        : targetUser.displayName;
+
       // Organize the schedule by day
       const scheduleByDay = {
         Monday: [],
@@ -67,7 +76,7 @@ export default {
       });
 
       // Generate the fancy schedule image
-      const imageBuffer = createFancyScheduleGraphic(targetUser.displayName, scheduleByDay);
+      const imageBuffer = createFancyScheduleGraphic(userName, scheduleByDay);
 
       // Send as an attachment
       const attachment = new AttachmentBuilder(imageBuffer, { name: 'schedule.png' });
