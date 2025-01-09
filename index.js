@@ -90,16 +90,16 @@ try {
     console.log(`Registering ${commands.length} commands:`, commands.map(cmd => cmd.name));
 
     // dev instant
-    await rest.put(
-        Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.SERVER_A),
-        { body: commands },
-    );
+    // await rest.put(
+       // Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.SERVER_A),
+       // { body: commands },
+    // );
 
     // For production (can take up to an hour)
-    // await rest.put(
-    //     Routes.applicationCommands(process.env.CLIENT_ID),
-    //     { body: commands },
-    // );
+    await rest.put(
+        Routes.applicationCommands(process.env.CLIENT_ID),
+        { body: commands },
+    );
 
     console.log('Successfully reloaded application (/) commands.');
 } catch (error) {
