@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, AttachmentBuilder } from 'discord.js';
+import { SlashCommandBuilder, AttachmentBuilder, MessageFlags } from 'discord.js';
 import { createCanvas } from 'canvas';
 
 export default {
@@ -15,8 +15,8 @@ export default {
 
     try {
       const results = await dbclient.execute(
-        `SELECT day, startTime, endTime, isFree, courseName
-         FROM schedule
+        `SELECT day, start_time, end_time, is_free, course_name
+         FROM schedules
          WHERE userId = ?
            AND day IN ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday')
          ORDER BY 
@@ -26,33 +26,43 @@ export default {
              WHEN 'Wednesday' THEN 3
              WHEN 'Thursday' THEN 4
              WHEN 'Friday' THEN 5
-           END`,
+           END,
+           start_time`,
         [targetUser.id]
       );
 
       if (!results || results.rows.length === 0) {
         await interaction.reply({
           content: `❌ No schedule found for **${targetUser.username}**.\nUse /add or /im-free to set availability!`,
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
         return;
       }
 
       // Organize the schedule by day
       const scheduleByDay = {
-        Monday:   [],
-        Tuesday:  [],
-        Wednesday:[],
+        Monday: [],
+        Tuesday: [],
+        Wednesday: [],
         Thursday: [],
-        Friday:   []
+        Friday: []
       };
 
       results.rows.forEach(row => {
+        // Convert minutes to AM/PM format
+        const formatTime = (minutes) => {
+          const hour = Math.floor(minutes / 60);
+          const min = minutes % 60;
+          const period = hour >= 12 ? 'PM' : 'AM';
+          const hour12 = hour % 12 || 12;
+          return `${hour12}:${min.toString().padStart(2, '0')}${period}`;
+        };
+
         scheduleByDay[row.day].push({
-          startTime: row.startTime,
-          endTime: row.endTime,
-          isFree: row.isFree,
-          courseName: row.courseName
+          startTime: formatTime(row.start_time),
+          endTime: formatTime(row.end_time),
+          isFree: row.is_free,
+          courseName: row.course_name
         });
       });
 
@@ -67,7 +77,7 @@ export default {
       console.error('Error retrieving schedule:', err);
       await interaction.reply({
         content: 'Failed to retrieve schedule.',
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
     }
   }
@@ -122,8 +132,7 @@ function createFancyScheduleGraphic(username, scheduleByDay) {
     // Grid lines
     drawGrid(ctx, DAYS, START_HOUR, END_HOUR, dayWidth, hourHeight, leftMargin, topMargin, titleHeight, canvasWidth);
   
-    // We'll track drawn events per day so we can check collisions.
-    // dayPositions[day] = array of { x, y, w, h } for each event drawn
+    // Track drawn events per day for collision detection
     const dayPositions = {};
     DAYS.forEach(day => dayPositions[day] = []);
   
@@ -137,39 +146,35 @@ function createFancyScheduleGraphic(username, scheduleByDay) {
   
         // Height of the event
         let h = endPos - startPos - 4;
-        // If h is super small, enforce a minimum so color is visible
-        if (h < 30) {
-          h = 30; 
-        }
+        if (h < 30) h = 30;
   
         // X & W for the event
         let x = leftMargin + dayIndex * dayWidth + 2;
         let w = dayWidth - 4;
   
-        // Check collision with previously drawn events in this day
+        // Check collision with previously drawn events
         let adjustedStartPos = startPos;
         let keepChecking = true;
 
         while (keepChecking) {
-            const collisions = dayPositions[day].filter(pos => {
+          const collisions = dayPositions[day].filter(pos => {
             const posBottom = pos.y + pos.h;
             const thisBottom = adjustedStartPos + h;
             return !(posBottom < adjustedStartPos || pos.y > thisBottom);
-            });
+          });
 
-            if (collisions.length > 0) {
-            // If there's a collision, move down below the last colliding event
+          if (collisions.length > 0) {
             const lastCollision = collisions.reduce((latest, pos) => {
-                return (pos.y + pos.h > latest.y + latest.h) ? pos : latest;
+              return (pos.y + pos.h > latest.y + latest.h) ? pos : latest;
             });
             adjustedStartPos = lastCollision.y + lastCollision.h + 2;
-            } else {
+          } else {
             keepChecking = false;
-            }
+          }
         }
 
-        // Use the adjusted position
         startPos = adjustedStartPos;
+        
         // Choose fill color and label
         let fillColor;
         let labelText;
@@ -177,7 +182,7 @@ function createFancyScheduleGraphic(username, scheduleByDay) {
           fillColor = '#CCFFCC';  // green for free
           labelText = 'Available';
         } else {
-          labelText = evt.courseName ? evt.courseName : 'Busy';
+          labelText = evt.courseName || 'Busy';
           fillColor = evt.courseName ? '#DABAFD' : '#FFD7D7';  
         }
   
@@ -195,16 +200,16 @@ function createFancyScheduleGraphic(username, scheduleByDay) {
         const rangeText = `${evt.startTime}–${evt.endTime}`;
         ctx.fillText(rangeText, x + 6, startPos + 28);
   
-        // (NEW) Remember this position to detect collisions with subsequent events
+        // Remember position for collision detection
         dayPositions[day].push({ x, y: startPos, w, h });
       });
     });
   
     return canvas.toBuffer('image/png');
-  }
-  
-  // The rest is the same as before: drawGrid, timeToY, convertToMinutes, formatHourLabel, etc.
-  function drawGrid(ctx, DAYS, startHour, endHour, dayWidth, hourHeight, leftMargin, topMargin, titleHeight, canvasWidth) {
+}
+
+// Helper functions remain the same
+function drawGrid(ctx, DAYS, startHour, endHour, dayWidth, hourHeight, leftMargin, topMargin, titleHeight, canvasWidth) {
     ctx.strokeStyle = '#DDD';
     ctx.lineWidth = 1;
   
