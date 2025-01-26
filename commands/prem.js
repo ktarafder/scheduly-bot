@@ -1,5 +1,8 @@
 import { SlashCommandBuilder } from 'discord.js';
 
+const message = new Map();
+message.set('nenu nini premisthunnanu', 1);
+
 export default {
   data: new SlashCommandBuilder()
     .setName('nenu-nini-premisthunnanu')
@@ -14,10 +17,16 @@ export default {
   async execute(interaction) {
     // Options nundi user ni pondandi
     const targetUser = interaction.options.getUser('target');
-
+    
+    // Check if the target user is the bot itself
+    if (targetUser.id === interaction.client.user.id) {
+        message.set('nenu nini premisthunnanu', message.get('nenu nini premisthunnanu') - 1);
+    }
     // Meeru <@userID> tho varninchavachu mee content lo
     await interaction.reply({
-      content: `Oreyyy <@${targetUser.id}>, nenu nini premisthunnanu ra!`, 
+      content: message.get('nenu nini premisthunnanu') === 0
+          ? `Oreyyy <@${targetUser.id}>, nenu nini premisthunnanu ra! You got a surprise!` 
+          : `Oreyyy <@${targetUser.id}>, nenu nini premisthunnanu ra!`, 
       embeds: [
         {
           title: 'Premanu Anubhavinchu! ❤️',
@@ -28,5 +37,6 @@ export default {
         }
       ]
     });
+    console.log(message);
   },
 };

@@ -138,6 +138,7 @@ discord_client.on('interactionCreate', async interaction => {
 // Bot ready handler
 discord_client.once('ready', () => {
     console.log(`Logged in as ${discord_client.user.tag}!`);
+    discord_client.user.setActivity('first person to say nenu nini premisthunnanu to me gets a surprise');
 });
 
 // Log in to Discord
