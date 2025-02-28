@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from 'discord.js';
 
-const message = new Map();
-message.set('nenu nini premisthunnanu', 1);
+const sandesam = new Map();
+sandesam.set('nenu nini premisthunnanu', 1);
 
 export default {
   data: new SlashCommandBuilder()
@@ -18,9 +18,8 @@ export default {
     // Options nundi user ni pondandi
     const targetUser = interaction.options.getUser('target');
     
-    // Check if the target user is the bot itself
     if (targetUser.id === interaction.client.user.id) {
-        message.set('nenu nini premisthunnanu', message.get('nenu nini premisthunnanu') - 1);
+        sandesam.set('nenu nini premisthunnanu', sandesam.get('nenu nini premisthunnanu') - 1);
     }
     // Meeru <@userID> tho varninchavachu mee content lo
     await interaction.reply({
@@ -37,6 +36,6 @@ export default {
         }
       ]
     });
-    console.log(message);
+    console.log(sandesam);
   },
 };
