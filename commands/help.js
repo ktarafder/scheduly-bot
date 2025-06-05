@@ -38,7 +38,7 @@ export default {
                 },
                 {
                     label: 'rec',
-                    description: 'Get recommendationns from AI on what to do',
+                    description: 'Get recommendations from AI on what to do',
                     value: 'rec'
                 },
             ]);
