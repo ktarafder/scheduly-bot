@@ -23,9 +23,9 @@ export default {
     }
     // Meeru <@userID> tho varninchavachu mee content lo
     await interaction.reply({
-      content: message.get('nenu nini premisthunnanu') === 0
-          ? `Oreyyy <@${targetUser.id}>, nenu nini premisthunnanu ra! You got a surprise!` 
-          : `Oreyyy <@${targetUser.id}>, nenu nini premisthunnanu ra!`, 
+      content: sandesam.get('nenu nini premisthunnanu') === 0
+          ? `Oreyyy <@${targetUser.id}>, nenu nini premisthunnanu ra! You got a surprise!`
+          : `Oreyyy <@${targetUser.id}>, nenu nini premisthunnanu ra!`,
       embeds: [
         {
           title: 'Premanu Anubhavinchu! ❤️',
