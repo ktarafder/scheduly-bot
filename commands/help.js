@@ -23,7 +23,7 @@ export default {
                 },
                 {
                     label: 'im-free',
-                    description: 'Check bot latency',
+                    description: 'Mark yourself as free for a time slot.',
                     value: 'im-free'
                 },
                 {
